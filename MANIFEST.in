@@ -1,0 +1,9 @@
+# Include the license and README files
+include LICENSE
+include README.md
+
+# Include the raw data files
+# These are the bundled BLAST database and the pre-built metadata table
+# Note: The database files are large, but essential for the core package function.
+# The user's installation will be ~15MB as confirmed earlier.
+recursive-include src/spestimator/data *
