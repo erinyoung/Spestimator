@@ -25,9 +25,9 @@ def main():
     
     # --- Input/Output ---
     parser.add_argument("-i", "--input", nargs="+", help="Input FASTA files")
-    parser.add_argument("--output", default="results.csv", help="Output CSV file")
+    parser.add_argument("-o", "--output", default="results.csv", help="Output CSV file")
     # FIX: Use nargs='?' and metavar="DIR" for flexible path handling
-    parser.add_argument("--download-genomes", type=Path, nargs='?', const=Path("genomes"), default=None, metavar="DIR",
+    parser.add_argument("-d", "--download-genomes", type=Path, nargs='?', const=Path("genomes"), default=None, metavar="DIR",
                         help="Download found genomes. Defaults to 'genomes/' if flag is used without a path.")
 
     # --- Database Args ---
@@ -37,7 +37,7 @@ def main():
     parser.add_argument("--db-name", type=str, 
                         help="Custom name for the database to appear in results (Default: DB filename)")
     
-    parser.add_argument("--update-db", action="store_true", help="Download database")
+    parser.add_argument("-u", "--update-db", action="store_true", help="Download database")
     parser.add_argument("-t", "--threads", type=int, default=4, help="BLAST threads")
 
     # --- Filtering Options ---
@@ -72,7 +72,7 @@ def main():
 
     # --- Mode 2: Locate Database ---
     if args.db_dir:
-        db_prefix = args.db_dir / "16S_ribosomal_RNA"
+        db_prefix = args.db_dir / "bacteeria.16SrRNA"
     else:
         db_prefix = get_bundled_db_prefix()
 
@@ -91,6 +91,7 @@ def main():
 
     # --- Mode 3: Estimation (Phase 1: BLAST & Filter) ---
     blast_args = {'max_target_seqs': args.max_target_seqs}
+    # TODO : add more BLAST args
     filter_args = {
         'min_hits': args.min_hits, 
         'min_identity': args.min_identity,
@@ -118,7 +119,7 @@ def main():
             logging.info(f"File: {fpath.name} -> Top Hit: {organism} ({count} reads)")
             all_raw_results.extend(file_results)
         else:
-            # FIX: Handle Empty Results (Zero Hits) - Use 'sacc' key to match estimation.py output
+            # Handle Empty Results
             logging.warning(f"File: {fpath.name} -> No matches found.")
             all_raw_results.append({
                 "input file": fpath.name,
@@ -175,7 +176,7 @@ def main():
                 df['organism'] = df['organism'].fillna(df['organism_blast'])
                 df.drop(columns=['organism_blast'], inplace=True)
             elif 'organism_blast' in df.columns:
-                 df.rename(columns={'organism_blast': 'organism'}, inplace=True)
+                df.rename(columns={'organism_blast': 'organism'}, inplace=True)
                 
             logging.info("Metadata merged successfully.")
         else:
@@ -224,7 +225,7 @@ def main():
             else:
                 logging.warning("No valid RefSeq GCFs found in results to download.")
         else:
-             logging.warning("RefSeq accession column missing (Metadata merge failed).")
+            logging.warning("RefSeq accession column missing (Metadata merge failed).")
 
 if __name__ == "__main__":
     main()
