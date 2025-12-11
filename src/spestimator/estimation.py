@@ -1,5 +1,3 @@
-# src/spestimator/estimation.py
-
 import subprocess
 import pandas as pd
 import logging
@@ -22,6 +20,7 @@ def run_blast(query_path, db_path, threads, max_target_seqs=10):
     7. evalue
     8. bitscore
     """
+    # We ask for stitle to have a fallback name if metadata lookup fails
     outfmt = "6 qseqid sacc stitle pident length qlen evalue bitscore"
     
     cmd = [
@@ -34,6 +33,7 @@ def run_blast(query_path, db_path, threads, max_target_seqs=10):
     ]
     
     try:
+        # Run BLAST 
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
         
         if not result.stdout:
@@ -50,6 +50,41 @@ def run_blast(query_path, db_path, threads, max_target_seqs=10):
         logger.error(f"Error parsing BLAST output: {e}")
         return pd.DataFrame()
 
+def clean_organism_name(text):
+    """
+    Cleans up the BLAST 'stitle' to get a concise organism name.
+    Matches the logic used in database.py for consistency.
+    """
+    if pd.isna(text): return "Unknown"
+    
+    # Sometimes stitle starts with the Accession (e.g., "NR_123.1 Organism..."). 
+    # If the first word looks like an accession (contains underscore), drop it.
+    first_word = text.split()[0]
+    if "_" in first_word and (first_word.startswith("NR_") or first_word.startswith("NZ_")):
+        parts = text.split(maxsplit=1)
+        if len(parts) > 1:
+            text = parts[1]
+
+    # Stop at specific delimiters that denote strain info
+    if " strain " in text:
+        text = text.split(" strain ")[0]
+        
+    # Remove common suffixes
+    # Note: Order matters. Remove " 16S..." first.
+    replacements = [
+        " 16S ribosomal RNA", 
+        " 16S rRNA",
+        " partial sequence", 
+        " complete sequence",
+        " gene for 16S rRNA"
+    ]
+    
+    for r in replacements:
+        text = text.replace(r, "")
+        
+    # Remove trailing commas or spaces
+    return text.strip().strip(",")
+
 def process_results(df, fasta_file, filters):
     """
     Filters raw BLAST hits and aggregates them by Organism/Accession.
@@ -58,6 +93,7 @@ def process_results(df, fasta_file, filters):
         return []
 
     # 1. Calculate Coverage (length / qlen * 100)
+    # Ensure no division by zero (though qlen should be > 0 from BLAST)
     df['qcov'] = (df['length'] / df['qlen']) * 100
 
     # 2. Apply Filters (Row-wise)
@@ -73,29 +109,18 @@ def process_results(df, fasta_file, filters):
     if df.empty:
         return []
 
-    # FIX: Avoid SettingWithCopyWarning
     df = df.copy()
 
     # 3. Clean Organism Name from 'stitle'
-    def clean_organism_name(text):
-        if pd.isna(text): return "Unknown"
-        parts = text.split(maxsplit=1)
-        if len(parts) > 1:
-            text = parts[1] # Drop "NR_xxxx.1"
-        
-        delimiters = [" strain", " 16S", " partial", " complete", ","]
-        for d in delimiters:
-            if d in text:
-                text = text.split(d)[0]
-        return text.strip()
-
+    # This provides a clean name for the report even if metadata lookup fails later
     df['organism_clean'] = df['stitle'].apply(clean_organism_name)
 
     # 4. Aggregate by Accession (sacc)
+    # Group by 'sacc' to get unique organisms identified by 16S ID.
     stats = df.groupby('sacc').agg(
         organism=('organism_clean', 'first'),
-        count=('qseqid', 'nunique'),
-        total_bitscore=('bitscore', 'sum'),
+        count=('qseqid', 'nunique'),          # How many distinct input reads hit this?
+        total_bitscore=('bitscore', 'sum'),   # Sum score = abundance * quality
         avg_bitscore=('bitscore', 'mean'),
         avg_pident=('pident', 'mean'),
         max_pident=('pident', 'max'),
@@ -108,15 +133,18 @@ def process_results(df, fasta_file, filters):
         stats = stats[stats['count'] >= filters['min_hits']]
 
     # 6. Sort by Count (Descending) AND Total Bitscore
-    stats = stats.sort_values(by=["count", "total_bitscore"], ascending=[False, False])
+    # This bubbles the most abundant/confident matches to the top
+    stats = stats.sort_values(by=["total_bitscore", "count"], ascending=[False, False])
 
     # 7. Apply Top-K Taxa Filter
+    # e.g., only show the top 10 organisms found in the sample
     if filters.get('top_k_taxa') and filters['top_k_taxa'] > 0:
         stats = stats.head(filters['top_k_taxa'])
 
     # 8. Format for Output
     stats['input file'] = Path(fasta_file).name
     
+    # Return list of dicts for easy DataFrame conversion later
     return stats.to_dict('records')
 
 def run_estimation(fasta_file, db_path, threads, blast_args, filter_args):

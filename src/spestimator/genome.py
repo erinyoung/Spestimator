@@ -1,5 +1,3 @@
-# src/spestimator/genome.py
-
 import logging
 import time
 import zipfile
@@ -48,8 +46,6 @@ def download_genomes_bulk(accession_list, output_dir):
             # Respect rate limits
             time.sleep(0.35)
             
-            # FIX: Removed _preload_content=False to fix Pydantic error.
-            # The client now returns raw bytes directly (downloaded to memory).
             zip_bytes = api_instance.download_assembly_package(
                 accessions=to_download,
                 include_annotation_type=["GENOME_FASTA"]

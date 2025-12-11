@@ -1,24 +1,24 @@
-# src/spestimator/metadata.py
-
 import pandas as pd
 import logging
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-def get_metadata_path():
+def get_bundled_metadata_path():
     """
     Returns the path to the bundled metadata.csv.gz file.
     Assumes it lives in src/spestimator/data/
     """
-    # __file__ is .../spestimator/metadata.py
-    # We want .../spestimator/data/metadata.csv.gz
     return Path(__file__).parent / "data" / "metadata.csv.gz"
 
-def load_metadata():
+def load_metadata(fpath=None):
     """
-    Loads the bundled metadata CSV into a Pandas DataFrame.
+    Loads the metadata CSV into a Pandas DataFrame.
     
+    Args:
+        fpath (Path, optional): Path to the metadata.csv.gz file. 
+                                If None, defaults to the bundled package file.
+
     Expected Columns in CSV:
       - blast_sacc 
       - taxid
@@ -28,7 +28,11 @@ def load_metadata():
     Returns:
         pd.DataFrame: Returns empty DataFrame if file is missing or corrupt.
     """
-    path = get_metadata_path()
+    # Determine which path to use
+    if fpath:
+        path = Path(fpath)
+    else:
+        path = get_bundled_metadata_path()
     
     if not path.exists():
         logger.warning(f"Metadata file not found at {path}. Results will use raw BLAST names.")
@@ -42,11 +46,11 @@ def load_metadata():
         df.columns = [c.strip() for c in df.columns]
         
         # Verify Key Column Exists
-        if 'blast_sacc' not in df.columns:
+        # Note: We check for 'blast_sacc' OR 'accession' to be safe, though our builder makes 'blast_sacc'
+        if 'blast_sacc' not in df.columns and 'accession' not in df.columns:
             logger.error(f"Metadata file at {path} is invalid (missing 'blast_sacc' column).")
             return pd.DataFrame()
         
-        # We merge on the 'blast_sacc' column directly in cli.py, so we return the full DataFrame.
         return df
         
     except Exception as e:
