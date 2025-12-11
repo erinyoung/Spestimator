@@ -28,7 +28,7 @@ def main():
     )
 
     parser.add_argument(
-        "-v", "--version", action="version", version=f"%(prog)s {pkg_version}"
+        "-v", "--version", action="version", version=f"spestimator {pkg_version}"
     )
 
     # --- Input/Output ---
