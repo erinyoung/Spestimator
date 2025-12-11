@@ -163,3 +163,4 @@ cython_debug/
 *.sqlite3
 taxdb*
 bacteria.16SrRNA.fna
+results.csv
