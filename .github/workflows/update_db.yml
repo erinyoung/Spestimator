@@ -48,11 +48,16 @@ jobs:
 
       - name: Bump Version Suffix
         run: |
-          # This replaces 'version = "0.1.0"' (or "0.1.0+rs230") with 'version = "0.1.0+rs232"'
-          # It preserves the base version (X.Y.Z) and updates the build metadata (+rs...)
-          sed -i 's/version = "\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/version = "\1+rs${{ env.REFSEQ_RELEASE }}"/' pyproject.toml
+          # Option 1: Dot Notation (0.1.0.232)
+          # Replaces 'version = "0.1.0"' (or "0.1.0.230") with 'version = "0.1.0.232"'
           
-          echo "Bumped version suffix to +rs${{ env.REFSEQ_RELEASE }}"
+          # 1. Look for version = "X.Y.Z" optionally followed by ".something"
+          # 2. Capture X.Y.Z
+          # 3. Append .${REFSEQ_RELEASE}
+          
+          sed -i 's/version = "\([0-9]\+\.[0-9]\+\.[0-9]\+\)\(\.[0-9]\+\)\?"/version = "\1.${{ env.REFSEQ_RELEASE }}"/' pyproject.toml
+          
+          echo "Bumped version to .${{ env.REFSEQ_RELEASE }}"
           grep "version =" pyproject.toml
 
       - name: Configure Git
