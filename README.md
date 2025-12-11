@@ -1,4 +1,12 @@
-# Spestimator
+<div align="center">
+  <img src="assets/logo.png" width="200" alt="Spestimator Logo">
+  <h1>Spestimator</h1>
+</div>
+
+![PyPI - Version](https://img.shields.io/pypi/v/Spestimator)
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/Spestimator)
+![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/erinyoung/Spestimator/test.yml?label=tests)
+![GitHub License](https://img.shields.io/github/license/erinyoung/Spestimator)
 
 **Species Estimator & Genome Retriever**
 
