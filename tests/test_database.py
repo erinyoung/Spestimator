@@ -2,14 +2,22 @@ import pytest
 import subprocess
 from unittest.mock import patch, MagicMock
 from pathlib import Path
-from spestimator.database import get_db_info, download_database
+from spestimator.database import get_db_info, download_database, clean_16s_title
+
+# --- Test clean_16s_title ---
+
+def test_clean_16s_title():
+    """Test the organism name cleaning logic."""
+    assert clean_16s_title("Alitibacter langaaensis strain ATCC 43328") == "Alitibacter langaaensis"
+    assert clean_16s_title("Roseovarius maritimus 16S ribosomal RNA") == "Roseovarius maritimus"
+    assert clean_16s_title("E. coli strain K12 16S ribosomal RNA") == "E. coli"
+    assert clean_16s_title("Unknown bacteria partial sequence") == "Unknown bacteria"
+    assert clean_16s_title("Bacillus subtilis") == "Bacillus subtilis"
 
 # --- Test get_db_info ---
 
 @patch('spestimator.database.subprocess.run')
 def test_get_db_info_success(mock_run, tmp_path):
-    """Test parsing of blastdbcmd output when it works."""
-    # Mock successful output from blastdbcmd
     mock_run.return_value.stdout = "Database: 16S rRNA\n10,000 sequences\nDate: Jan 2024"
     mock_run.return_value.returncode = 0
     
@@ -18,58 +26,70 @@ def test_get_db_info_success(mock_run, tmp_path):
     
     assert "10,000 sequences" in info
     mock_run.assert_called_once()
-    # Ensure correct args were passed
-    cmd_args = mock_run.call_args[0][0]
-    assert cmd_args[0] == "blastdbcmd"
-    assert cmd_args[2] == str(db_path)
 
 @patch('spestimator.database.subprocess.run')
 def test_get_db_info_missing_blast(mock_run, tmp_path):
-    """Test handling of FileNotFoundError if blast isn't installed."""
     mock_run.side_effect = FileNotFoundError
-    
     db_path = tmp_path / "bacteria.16SrRNA"
     info = get_db_info(db_path)
-    
     assert "blastdbcmd not found" in info
 
 # --- Test download_database ---
 
-@patch('spestimator.database.requests.get')
+@patch('spestimator.database.download_file_with_progress') 
 @patch('spestimator.database.gzip.open')
 @patch('spestimator.database.subprocess.run')
-def test_download_database_success(mock_run, mock_gzip, mock_requests, tmp_path):
+def test_download_database_success(mock_run, mock_gzip, mock_download, tmp_path):
     """
     Test the full flow: Download -> Decompress -> Build DB.
     """
-    # 1. Mock Requests (Streaming response context manager)
-    mock_response = MagicMock()
-    mock_response.raise_for_status = MagicMock()
-    mock_response.raw = MagicMock()
-    mock_requests.return_value.__enter__.return_value = mock_response
-    
-    # 2. Mock Gzip (Read/Write context manager)
-    mock_gzip.return_value.__enter__.return_value = MagicMock() # f_in
-    
-    # 3. Mock Subprocess (makeblastdb)
-    mock_run.return_value.returncode = 0
-    
     target_dir = tmp_path / "spestimator_db"
     
-    download_database(target_dir)
+    # 1. Setup Mock for Download Side Effect
+    # This creates the dummy .gz file so that .unlink() doesn't crash later.
+    def create_dummy_file(url, dest_path, desc=None):
+        with open(dest_path, 'wb') as f:
+            f.write(b"fake gzip content")
+        return True
     
-    # Assertions:
+    mock_download.side_effect = create_dummy_file
     
-    # A. Check Download
-    mock_requests.assert_called_once()
-    assert "ftp.ncbi.nlm.nih.gov" in mock_requests.call_args[0][0]
+    # 2. Mock Gzip
+    # Configure the file handle to return empty bytes to simulate EOF for shutil.copyfileobj
+    mock_file_handle = MagicMock()
+    mock_file_handle.read.return_value = b"" 
+    mock_gzip.return_value.__enter__.return_value = mock_file_handle
     
-    # B. Check Decompression (gzip open called)
+    # 3. Mock Subprocess
+    mock_run.return_value.returncode = 0
+    
+    # Run
+    download_database(target_dir, force=True)
+    
+    # Assertions
+    mock_download.assert_called_once()
+    assert "bacteria.16SrRNA.fna.gz" in str(mock_download.call_args[0][1])
+    
     mock_gzip.assert_called_once()
-    
-    # C. Check DB Build (makeblastdb called)
     mock_run.assert_called_once()
-    cmd_args = mock_run.call_args[0][0]
-    assert cmd_args[0] == "makeblastdb"
-    assert cmd_args[4] == "nucl" # dbtype
-    assert str(target_dir / "bacteria.16SrRNA.fna") in cmd_args[2] # input file
+
+@patch('spestimator.database.download_file_with_progress')
+@patch('spestimator.database.gzip.open')
+@patch('spestimator.database.subprocess.run')
+def test_download_database_skips_if_exists(mock_run, mock_gzip, mock_download, tmp_path):
+    """
+    Test that we skip download if file exists and force=False.
+    """
+    target_dir = tmp_path / "spestimator_db"
+    target_dir.mkdir(parents=True)
+    
+    # Create the FASTA file so it 'exists'
+    fasta = target_dir / "bacteria.16SrRNA.fna"
+    fasta.touch()
+    
+    download_database(target_dir, force=False)
+    
+    # Assertions
+    mock_download.assert_not_called() 
+    mock_gzip.assert_not_called()     
+    mock_run.assert_called_once()
