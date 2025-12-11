@@ -9,6 +9,11 @@ on:
 jobs:
   update-db:
     runs-on: ubuntu-latest
+    
+    # Permissions required to push changes and create PRs
+    permissions:
+      contents: write
+      pull-requests: write
 
     steps:
       - name: Checkout repository
@@ -41,24 +46,31 @@ jobs:
             --db-dir src/spestimator/data \
             --api-key ${{ secrets.NCBI_API_KEY }}
 
+      - name: Bump Version Suffix
+        run: |
+          # This replaces 'version = "0.1.0"' (or "0.1.0+rs230") with 'version = "0.1.0+rs232"'
+          # It preserves the base version (X.Y.Z) and updates the build metadata (+rs...)
+          sed -i 's/version = "\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/version = "\1+rs${{ env.REFSEQ_RELEASE }}"/' pyproject.toml
+          
+          echo "Bumped version suffix to +rs${{ env.REFSEQ_RELEASE }}"
+          grep "version =" pyproject.toml
+
       - name: Configure Git
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Create branch and commit
-        # Using the ENV variable fetched earlier
         run: |
           BRANCH_NAME="spestimator-update-${{ env.REFSEQ_RELEASE }}-$(date +%Y%m%d)"
           echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
           
           git checkout -b $BRANCH_NAME
           
-          # Add the specific generated files (ensure path matches your makeblastdb output)
-          # Note: The wildcard matches bacteria.16SrRNA.nsq, .nin, .nhr etc.
-          git add src/spestimator/data/bacteria.16SrRNA* src/spestimator/data/metadata.csv.gz
+          # Add DB files, metadata, AND the updated pyproject.toml
+          git add src/spestimator/data/bacteria.16SrRNA* src/spestimator/data/metadata.csv.gz pyproject.toml
           
-          git commit -m "Update 16S BLAST DB (RefSeq Release ${{ env.REFSEQ_RELEASE }})" || echo "No changes to commit"
+          git commit -m "Update 16S DB (RefSeq ${{ env.REFSEQ_RELEASE }}) & Bump Version" || echo "No changes to commit"
 
       - name: Push branch
         uses: ad-m/github-push-action@v0.6.0
@@ -71,11 +83,11 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           branch: ${{ env.BRANCH_NAME }}
-          title: "Update 16S BLAST DB (RefSeq Release ${{ env.REFSEQ_RELEASE }})"
+          title: "Update 16S DB (RefSeq Release ${{ env.REFSEQ_RELEASE }})"
           body: |
-            This PR updates the internal 16S BLAST database and metadata.
+            Updates the internal BLAST DB and metadata to RefSeq Release **${{ env.REFSEQ_RELEASE }}**.
             
-            **RefSeq Release:** ${{ env.REFSEQ_RELEASE }}
+            This PR also updates `pyproject.toml` to append the RefSeq build metadata (e.g., `+rs${{ env.REFSEQ_RELEASE }}`).
+            
             **Date:** $(date +%Y-%m-%d)
-            
             _Generated automatically by Spestimator GitHub Action._
