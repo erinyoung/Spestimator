@@ -14,12 +14,12 @@ logger = logging.getLogger(__name__)
 
 # Configure the client globally
 CONFIGURATION = ncbi.datasets.openapi.Configuration(
-    host = "https://api.ncbi.nlm.nih.gov/datasets/v2"
+    host = "https://api.ncbi.nlm.nih.gov/datasets/v2alpha"
 )
 
 def download_genomes_bulk(accession_list, output_dir):
     """
-    Uses the ncbi-datasets-pyclient to download a batch of genomes as a ZIP.
+    Uses the ncbi-datasets client to download a batch of genomes as a ZIP.
     Extracts the .fna (FASTA) files to the output directory.
     """
     if not accession_list:
@@ -43,13 +43,21 @@ def download_genomes_bulk(accession_list, output_dir):
         api_instance = GenomeApi(api_client)
         
         try:
-            # Respect rate limits
+            # Respect rate limits slightly
             time.sleep(0.35)
             
-            zip_bytes = api_instance.download_assembly_package(
+            # FIX: Removed '_preload_content=False'. 
+            # Recent versions of the library return the bytes directly by default for this endpoint.
+            response = api_instance.download_assembly_package(
                 accessions=to_download,
                 include_annotation_type=["GENOME_FASTA"]
             )
+            
+            # Handle potential response wrappers (just in case of version differences)
+            if hasattr(response, 'data'):
+                zip_bytes = response.data
+            else:
+                zip_bytes = response
             
             # Wrap the raw bytes in a buffer
             zip_buffer = io.BytesIO(zip_bytes)
@@ -60,20 +68,19 @@ def download_genomes_bulk(accession_list, output_dir):
                 for filename in z.namelist():
                     # Only extract the FASTA files
                     if filename.endswith(".fna"):
-                        # Extract the GCF accession from the path to name our file cleanly.
+                        # Extract the GCF accession from the path
                         parts = filename.split('/')
                         gcf_id = next((p for p in parts if p.startswith("GCF_")), None)
                         
                         if gcf_id:
                             target_path = output_dir / f"{gcf_id}.fasta"
                             
-                            # Write file
                             with z.open(filename) as source, open(target_path, "wb") as target:
                                 shutil.copyfileobj(source, target)
                             
                             extracted_count += 1
                             
-                logger.info(f"Successfully downloaded and extracted {extracted_count} genomes.")
+            logger.info(f"Successfully downloaded and extracted {extracted_count} genomes.")
                             
         except ApiException as e:
             logger.error(f"NCBI Client Error (Download): {e.status} - {e.reason}")

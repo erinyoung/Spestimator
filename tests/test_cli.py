@@ -29,13 +29,13 @@ def test_missing_input_file():
     assert "Skipping" in result.stderr or "Database not found" in result.stderr
 
 def test_download_genome_flag_default(test_data_dir):
-    """Test that --download-genomes without a path defaults correctly (our fix)."""
+    """Test that --download-genomes without a path defaults correctly."""
     input_file = test_data_dir / "sample_input.fasta"
     # Create a dummy input file for the test
     if not input_file.exists():
         input_file.write_text(">test_read\nAGCT")
 
-    # This tests the nargs='?' fix (it should not ask for an argument)
+    # This tests the nargs='?'
     result = run_cli(["-i", str(input_file), "--download-genomes"])
     
     # If the DB is missing, it will fail, but the key is that argparse passed without error

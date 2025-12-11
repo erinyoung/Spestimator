@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "spestimator"
-version = "0.1.0"
+version = "0.1.0-rf232"
 description = "A tool to predict bacterial species from fasta files using RefSeq 16S."
 readme = "README.md"
 authors = [
@@ -19,6 +19,7 @@ requires-python = ">=3.9"
 dependencies = [
     "pandas",
     "requests",
+    "tqdm",    
     "ncbi-datasets-pyclient",
 ]
 
@@ -50,6 +51,6 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 spestimator = [
-    "data/*.gz",
-    "data/16S_ribosomal_RNA.*"
+    "data/*.gz",             
+    "data/bacteria.16SrRNA.*"
 ]
