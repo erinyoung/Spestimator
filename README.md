@@ -183,3 +183,7 @@ cut -f 4 -d , results.csv | grep GCF > id_list.txt
 # decompress file and use for additional analysis
 unzip ncbi_dataset.zip
 ```
+
+## AI Usage
+
+Spestimator began as a set of custom shell and Python scripts used for ad-hoc analysis. To make these tools more reliable and accessible, Google's Gemini was used to accelerate the transition into a Python package. Gemini assisted in modularizing the codebase, replacing parsing logic with Pandas operations, and implementing a "mocked" testing suite that allows for safe CI/CD without hitting NCBI servers. Gemini also created the logo.
