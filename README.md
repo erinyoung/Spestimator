@@ -2,7 +2,10 @@
 
 **Species Estimator & Genome Retriever**
 
+Species + Estimator = Spestimator
+
 Spestimator is a lightweight Python command-line tool designed to quickly identify bacterial species from input FASTA sequences (contigs or reads) and automatically retrieve their corresponding reference genomes from NCBI RefSeq.
+
 
 ## Why Spestimator?
 
