@@ -15,7 +15,7 @@ I needed a tool that could:
 ## Installation
 
 ### From Pip/From Source
-Spestimator requires NCBI BLAST+ to be installed and available in your system path.
+Spestimator requires [NCBI BLAST+](https://blast.ncbi.nlm.nih.gov/doc/blast-help/downloadblastdata.html#downloadblastdata) to be installed and available in your system path.
 
 ```bash
 sudo apt-get install ncbi-blast+
@@ -38,16 +38,8 @@ pip install .
 conda install -c bioconda spestimator
 ```
 
-### Updating the database
 
-RefSeq updates quarterly. There is an attempt to keep this package on a similar update schedule, but this may not be feasible. To get a current version of the database.
 
-```bash
-# downloads https://ftp.ncbi.nlm.nih.gov/refseq/TargetedLoci/Bacteria/bacteria.16SrRNA.fna.gz for blast database
-# uses eutils to get taxids for blast database (NCBI api-key will speed this step up)
-# downloads https://ftp.ncbi.nlm.nih.gov/genomes/refseq/bacteria/assembly_summary.txt for refseq accesions
-spestimator --update-db --db-dir database --api-key NCBI_API_KEY
-```
 
 ---
 
@@ -63,6 +55,22 @@ Identify organisms and download the matched RefSeq genomes to a folder:
 
 ```bash
 spestimator -i *.fasta -o results.csv -d genomes_dir/
+```
+
+### Updating the database
+
+RefSeq updates quarterly. There is an attempt to keep this package on a similar update schedule, but this may not be feasible. To get a current version of the database.
+
+```bash
+# downloads https://ftp.ncbi.nlm.nih.gov/refseq/TargetedLoci/Bacteria/bacteria.16SrRNA.fna.gz for blast database
+# uses eutils to get taxids for blast database (NCBI api-key will speed this step up)
+# downloads https://ftp.ncbi.nlm.nih.gov/genomes/refseq/bacteria/assembly_summary.txt for refseq accesions
+spestimator --update-db --db-dir database --api-key NCBI_API_KEY
+```
+This database can then be used by
+
+```bash
+spestimator -i *.fasta -o results.csv -d genomes_dir/ --db-dir database
 ```
 
 ---
@@ -106,10 +114,10 @@ Filtering Options:
 ```
 
 ## How It Works
-- Runs local [blastn]() of your input against the 16S database in the repo.
+- Runs [blastn](https://blast.ncbi.nlm.nih.gov/doc/blast-help/downloadblastdata.html#downloadblastdata) of your input against the 16S database in the repo.
 - Filters hits based on identity and coverage.
 - Aggregates hits to identify the most likely species present.
-- (Optional): Uses the [ncbi-datasets]() library to verify and download the exact genome assembly (`GCF_xxxx`) associated with the identified species.
+- (Optional): Uses [ncbi-datasets-pyclient](https://github.com/misialq/ncbi-datasets-pyclient) to download the reference genome assembly (`GCF_xxxx`) associated with the identified species.
 
 ---
 
@@ -149,7 +157,7 @@ sample_positive.fasta,Streptococcus agalactiae ATCC 13813,888745,,NR_040821,1,24
 
 ## Disclaimer: NCBI Datasets
 
-Spestimator relies on the [ncbi-datasets-pylib]() client to retrieve genomes. This library updates frequently, as does the underlying [datasets API](). If you encounter unexpected errors during genome download (e.g., `ApiException` or connection drops), please [submit an issue](https://github.com/erinyoung/Spestimator/issues) and use the accessions in the "refseq_accession" column to download with [datasets]() separately.
+Spestimator relies on [ncbi-datasets-pyclient](https://github.com/misialq/ncbi-datasets-pyclient) to retrieve genomes. This library updates frequently, as does the underlying [datasets](https://github.com/ncbi/datasets) tool. If you encounter unexpected errors during genome download (e.g., `ApiException` or connection drops), please [submit an issue](https://github.com/erinyoung/Spestimator/issues) and use the accessions in the "refseq_accession" column to download with [datasets](https://github.com/ncbi/datasets) separately.
 
 ```bash
 # download datasets
