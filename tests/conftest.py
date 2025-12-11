@@ -1,5 +1,3 @@
-# tests/conftest.py
-
 import pytest
 import pandas as pd
 from pathlib import Path
@@ -10,7 +8,6 @@ from pathlib import Path
 def fasta_positive(tmp_path):
     """Creates a FASTA file with a valid E. coli sequence."""
     p = tmp_path / "sample_positive.fasta"
-    # Truncated E. coli 16S for brevity in test file creation, but long enough to match
     seq = (
         "GCTTAACACATGCAAGTCGAACGGTAACAGGAAGAAGCTTGCTTCTTTGCTGACGAGTGGCGGACGGGTGAGTAAT"
         "GTCTGGGAAACTGCCTGATGGAGGGGGATAACTACTGGAAACGGTAGCTAATACCGCATAACGTCGCAAGACCAAAG"
@@ -22,7 +19,7 @@ def fasta_positive(tmp_path):
 def fasta_nomatch(tmp_path):
     """Creates a FASTA file that yields no BLAST hits."""
     p = tmp_path / "sample_nomatch.fasta"
-    seq = "TGCAT" * 50  # Repetitive nonsense
+    seq = "TGCAT" * 50 
     p.write_text(f">Test_NoMatch|Alien\n{seq}\n")
     return p
 
@@ -41,10 +38,12 @@ def sample_blast_df():
     Creates a dummy BLAST DataFrame mimicking output for estimation.py tests.
     """
     data = [
+        # Hit 1: Good Match (NR_001) - Count 2 (read1, read4)
         ["read1", "NR_001", "Bacteria A strain 1", 99.0, 1500, 1500, 0.0, 2000],
         ["read2", "NR_002", "Bacteria B", 100.0, 50, 1500, 1e-5, 100],
         ["read3", "NR_003", "Bacteria C", 80.0, 1500, 1500, 0.0, 1800],
         ["read4", "NR_001", "Bacteria A strain 2", 98.0, 1490, 1500, 0.0, 1950],
+        ["read5", "NR_004", "Bacteria D", 95.0, 1500, 1500, 0.0, 1700],
     ]
     cols = ["qseqid", "sacc", "stitle", "pident", "length", "qlen", "evalue", "bitscore"]
     return pd.DataFrame(data, columns=cols)
@@ -52,7 +51,10 @@ def sample_blast_df():
 @pytest.fixture
 def test_data_dir():
     """Returns the path to the tests/data directory."""
-    return Path(__file__).parent / "data"
+    # Ensure this directory actually exists or create it
+    d = Path(__file__).parent / "data"
+    d.mkdir(exist_ok=True)
+    return d
 
 @pytest.fixture
 def mock_db_path(tmp_path):
