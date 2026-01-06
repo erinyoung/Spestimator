@@ -60,39 +60,27 @@ jobs:
           echo "Bumped version to .${{ env.REFSEQ_RELEASE }}"
           grep "version =" pyproject.toml
 
-      - name: Configure Git
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Create branch and commit
-        run: |
-          BRANCH_NAME="spestimator-update-${{ env.REFSEQ_RELEASE }}-$(date +%Y%m%d)"
-          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
-          
-          git checkout -b $BRANCH_NAME
-          
-          # Add DB files, metadata, AND the updated pyproject.toml
-          git add -f src/spestimator/data/bacteria.16SrRNA* src/spestimator/data/metadata.csv.gz pyproject.toml
-          
-          git commit -m "Update 16S DB (RefSeq ${{ env.REFSEQ_RELEASE }}) & Bump Version" || echo "No changes to commit"
-
-      - name: Push branch
-        uses: ad-m/github-push-action@v0.6.0
-        with:
-          branch: ${{ env.BRANCH_NAME }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          branch: ${{ env.BRANCH_NAME }}
+          # The action will automatically create this branch for you
+          branch: "spestimator-update-${{ env.REFSEQ_RELEASE }}-$(date +%Y%m%d)"
+          base: main
+          commit-message: "Update 16S DB (RefSeq ${{ env.REFSEQ_RELEASE }}) & Bump Version"
           title: "Update 16S DB (RefSeq Release ${{ env.REFSEQ_RELEASE }})"
           body: |
             Updates the internal BLAST DB and metadata to RefSeq Release **${{ env.REFSEQ_RELEASE }}**.
-            
-            This PR also updates `pyproject.toml` to append the RefSeq build metadata (e.g., `+rs${{ env.REFSEQ_RELEASE }}`).
+             
+            This PR also updates `pyproject.toml` to append the RefSeq build metadata.
+             
+            **Date:** $(date +%Y-%m-%d)
+            _Generated automatically by Spestimator GitHub Action._
+          # Explicitly list files to ensure untracked files (like new DBs) are added
+          add-paths: |
+            src/spestimator/data/bacteria.16SrRNA*
+            src/spestimator/data/metadata.csv.gz
+            pyproject.toml
             
             **Date:** $(date +%Y-%m-%d)
             _Generated automatically by Spestimator GitHub Action._
