@@ -10,7 +10,6 @@ jobs:
   update-db:
     runs-on: ubuntu-latest
     
-    # Permissions required to push changes and create PRs
     permissions:
       contents: write
       pull-requests: write
@@ -19,11 +18,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Get current RefSeq Release Number
-        id: refseq_version
+      - name: Get RefSeq Version & Date
+        id: meta
         run: |
           RELEASE_NUM=$(curl -s https://ftp.ncbi.nlm.nih.gov/refseq/release/RELEASE_NUMBER | tr -d '\n')
+          CURRENT_DATE=$(date +%Y-%m-%d)
+          
           echo "REFSEQ_RELEASE=$RELEASE_NUM" >> $GITHUB_ENV
+          echo "DATE=$CURRENT_DATE" >> $GITHUB_ENV
+          
           echo "Current RefSeq Release: $RELEASE_NUM"
 
       - name: Set up Python
@@ -48,39 +51,31 @@ jobs:
 
       - name: Bump Version Suffix
         run: |
-          # Option 1: Dot Notation (0.1.0.232)
-          # Replaces 'version = "0.1.0"' (or "0.1.0.230") with 'version = "0.1.0.232"'
-          
-          # 1. Look for version = "X.Y.Z" optionally followed by ".something"
-          # 2. Capture X.Y.Z
-          # 3. Append .${REFSEQ_RELEASE}
-          
           sed -i 's/version = "\([0-9]\+\.[0-9]\+\.[0-9]\+\)\(\.[0-9]\+\)\?"/version = "\1.${{ env.REFSEQ_RELEASE }}"/' pyproject.toml
-          
           echo "Bumped version to .${{ env.REFSEQ_RELEASE }}"
           grep "version =" pyproject.toml
+
+      # NEW: Manually force-add the ignored files so the PR action sees them
+      - name: Stage ignored DB files
+        run: |
+          git add -f src/spestimator/data/bacteria.16SrRNA*
+          git add src/spestimator/data/metadata.csv.gz
+          git add pyproject.toml
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          # The action will automatically create this branch for you
-          branch: "spestimator-update-${{ env.REFSEQ_RELEASE }}-$(date +%Y%m%d)"
           base: main
+          # We use the date variable we created in step 2
+          branch: "spestimator-update-${{ env.REFSEQ_RELEASE }}-${{ env.DATE }}"
           commit-message: "Update 16S DB (RefSeq ${{ env.REFSEQ_RELEASE }}) & Bump Version"
           title: "Update 16S DB (RefSeq Release ${{ env.REFSEQ_RELEASE }})"
+          # No need for 'add-paths' because we staged them manually above
           body: |
             Updates the internal BLAST DB and metadata to RefSeq Release **${{ env.REFSEQ_RELEASE }}**.
-             
-            This PR also updates `pyproject.toml` to append the RefSeq build metadata.
-             
-            **Date:** $(date +%Y-%m-%d)
-            _Generated automatically by Spestimator GitHub Action._
-          # Explicitly list files to ensure untracked files (like new DBs) are added
-          add-paths: |
-            src/spestimator/data/bacteria.16SrRNA*
-            src/spestimator/data/metadata.csv.gz
-            pyproject.toml
             
-            **Date:** $(date +%Y-%m-%d)
+            This PR also updates `pyproject.toml` to append the RefSeq build metadata.
+            
+            **Date:** ${{ env.DATE }}
             _Generated automatically by Spestimator GitHub Action._
