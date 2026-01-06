@@ -73,7 +73,7 @@ jobs:
           git checkout -b $BRANCH_NAME
           
           # Add DB files, metadata, AND the updated pyproject.toml
-          git add src/spestimator/data/bacteria.16SrRNA* src/spestimator/data/metadata.csv.gz pyproject.toml
+          git add -f src/spestimator/data/bacteria.16SrRNA* src/spestimator/data/metadata.csv.gz pyproject.toml
           
           git commit -m "Update 16S DB (RefSeq ${{ env.REFSEQ_RELEASE }}) & Bump Version" || echo "No changes to commit"
 
