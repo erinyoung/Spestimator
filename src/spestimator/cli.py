@@ -123,7 +123,9 @@ def main():
 
         # 2. Generate Metadata
         db_prefix = target_dir / "bacteria.16SrRNA"
-        metadata_output = target_dir / "metadata.csv.gz"
+        db_metadata_output = target_dir / "db_metadata.csv.gz"
+        refseq_metadata_output = target_dir / "refseq_metadata.csv.gz"
+
 
         # Safe check for DB existence (avoiding pathlib suffix replacement issues)
         nsq_path = Path(str(db_prefix) + ".nsq")
@@ -137,7 +139,7 @@ def main():
         logging.info(
             "Generating metadata table (this uses NCBI API and may take a minute)..."
         )
-        create_metadata_table(db_prefix, metadata_output, api_key=args.api_key)
+        create_metadata_table(db_prefix, db_metadata_output, refseq_metadata_output, api_key=args.api_key)
 
         logging.info("Update complete.")
         sys.exit(0)

@@ -181,10 +181,14 @@ def fetch_taxids_for_accessions(accessions, api_key=None):
             time.sleep(5)
 
     pbar.close()
-    return pd.DataFrame(results)
+    
+    df = pd.DataFrame(results)
+    df["organism"] = df["organism"].apply(clean_16s_title)
+
+    return df
 
 
-def fetch_refseq_assembly_summary():
+def fetch_refseq_assembly_summary(tax_list):
     """
     Downloads and parses the RefSeq Assembly Summary.
     Captures: GCF Accession, TaxID, and Organism Name.
@@ -208,26 +212,19 @@ def fetch_refseq_assembly_summary():
 
         logger.info("Parsing Assembly Summary...")
 
-        # Col 0: assembly_accession, Col 4: refseq_category, Col 6: species_taxid, Col 7: organism_name, Col 11: assembly_level
         df = pd.read_csv(
             tmp_path,
             sep="\t",
             dtype=str,
-            comment="#",
-            header=None,
-            usecols=[0, 4, 6, 7, 11],
-            names=["refseq_assembly", "category", "taxid", "organism_clean", "level"],
+            header=1,
+            usecols=["#assembly_accession", "refseq_category", "species_taxid", "organism_name"],
         )
 
-        cat_map = {"reference genome": 1, "representative genome": 2}
-        df["prio_cat"] = df["category"].map(cat_map).fillna(3)
-        lvl_map = {"Complete Genome": 1, "Chromosome": 2, "Scaffold": 3, "Contig": 4}
-        df["prio_lvl"] = df["level"].map(lvl_map).fillna(5)
+        df.rename(columns={'#assembly_accession': 'assembly_accession'}, inplace=True)
+        df = df[df['refseq_category'] != 'na']
+        df = df[df['species_taxid'].isin(tax_list)]
 
-        df_sorted = df.sort_values(by=["taxid", "prio_cat", "prio_lvl"])
-        df_unique = df_sorted.drop_duplicates(subset=["taxid"], keep="first")
-
-        logger.info(f"Loaded {len(df_unique)} unique species genomes.")
+        logger.info(f"Identified {len(df_unique)} reference genomes for {len(tax_list)} taxids.")
         return df_unique[["taxid", "refseq_assembly", "organism_clean"]]
 
     except Exception as e:
@@ -259,51 +256,28 @@ def clean_16s_title(text):
     return text.strip()
 
 
-def create_metadata_table(db_path, output_path, api_key=None):
+def create_metadata_table(db_path, db_output_path, refseq_output_path, api_key=None):
     """Main function to generate the metadata table."""
 
-    # 1. Get Accessions
+    # 1. Get Accessions from blast_db
     accessions = get_blast_accessions(db_path)
     if not accessions:
         return
 
-    # 2. Get TaxIDs
-    df_tax = fetch_taxids_for_accessions(accessions, api_key)
-    if df_tax.empty:
-        logger.error("Could not fetch TaxIDs. Aborting.")
-        return
+    # 2. Get TaxIDs for each Accession
+    df = fetch_taxids_for_accessions(accessions, api_key)
 
-    # --- CLEANUP STEP ---
-    # Apply cleaning to the 16S 'organism' name immediately.
-    # This acts as our fallback if RefSeq doesn't have a better name.
-    logger.info("Cleaning organism names...")
-    df_tax["organism"] = df_tax["organism"].apply(clean_16s_title)
+    # 3. Save
+    db_output_path = Path(db_output_path)
+    df_final.to_csv(db_output_path, index=False, compression="gzip")
+    logger.info(f"DB Metadata saved to {output_path}")
 
-    # 3. Get Assembly Map
-    df_assemblies = fetch_refseq_assembly_summary()
-
-    # 4. Merge
-    logger.info("Merging 16S data with Reference Genomes...")
-
-    df_tax["taxid"] = df_tax["taxid"].astype(str)
-
-    if not df_assemblies.empty:
-        df_assemblies["taxid"] = df_assemblies["taxid"].astype(str)
-        df_final = pd.merge(df_tax, df_assemblies, on="taxid", how="left")
-
-        # PREFERENCE LOGIC:
-        # 1. Use 'organism_clean' (from RefSeq Assembly) if available.
-        # 2. If NA, fallback to 'organism' (which we just cleaned above).
-        df_final["organism"] = df_final["organism_clean"].fillna(df_final["organism"])
-
-        df_final.drop(columns=["organism_clean"], inplace=True)
-    else:
-        df_final = df_tax
-        df_final["refseq_assembly"] = pd.NA
-
-    df_final["refseq_assembly"] = df_final["refseq_assembly"].fillna("NA")
+    # 4. Get RefSeq Reference Accesions for each TaxID
+    taxid_list = df['taxid'].tolist()
+    df_assemblies = fetch_refseq_assembly_summary(taxid_list)
 
     # 5. Save
-    output_path = Path(output_path)
-    df_final.to_csv(output_path, index=False, compression="gzip")
-    logger.info(f"Metadata saved to {output_path}")
+    refseq_output_path = Path(refseq_output_path)
+    df_final.to_csv(refseq_output_path, index=False, compression="gzip")
+    logger.info(f"DB Metadata saved to {output_path}")
+
