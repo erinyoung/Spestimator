@@ -226,24 +226,24 @@ def main():
     meta_df = load_metadata(metadata_path)
 
     df = df.merge(
-            meta_df,
-            on="sacc",
-            how="left",
-        )
+        meta_df,
+        on="sacc",
+        how="left",
+    )
 
     cols_to_drop = ["blast_sacc", "blast_organism", "refseq_category", "any_taxid"]
 
     # Drop them in place
     df = df.drop(columns=cols_to_drop)
-    df = df.dropna(subset=['assembly_accession'])
+    df = df.dropna(subset=["assembly_accession"])
 
     # specific mapping of old_name: new_name
     rename_map = {
-        'blast_taxid': 'taxid',
-        'blast_species_taxid': 'species_taxid',
-        'assembly_accession': 'refseq_assembly_accession',
-        'taxid': 'refseq_taxid',
-        'species_taxid': 'refseq_species_taxid'
+        "blast_taxid": "taxid",
+        "blast_species_taxid": "species_taxid",
+        "assembly_accession": "refseq_assembly_accession",
+        "taxid": "refseq_taxid",
+        "species_taxid": "refseq_species_taxid",
     }
 
     # Apply the rename
@@ -281,7 +281,9 @@ def main():
         logging.info("--- Starting Genome Downloads ---")
 
         if "refseq_assembly_accession" in df.columns:
-            valid_gcfs = df[df["refseq_assembly_accession"].astype(str).str.startswith("GCF")]
+            valid_gcfs = df[
+                df["refseq_assembly_accession"].astype(str).str.startswith("GCF")
+            ]
             unique_gcfs = valid_gcfs["refseq_assembly_accession"].unique().tolist()
 
             if unique_gcfs:

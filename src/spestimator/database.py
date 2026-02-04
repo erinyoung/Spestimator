@@ -21,9 +21,7 @@ REFSEQ_ASSEMBLY_SUMMARY_URL = (
     "https://ftp.ncbi.nlm.nih.gov/genomes/refseq/bacteria/assembly_summary.txt"
 )
 
-TAXDUMP_SUMMARY_URL = (
-    "https://ftp.ncbi.nlm.nih.gov/pub/taxonomy/taxdump.tar.gz"
-)
+TAXDUMP_SUMMARY_URL = "https://ftp.ncbi.nlm.nih.gov/pub/taxonomy/taxdump.tar.gz"
 
 # --- NCBI API Constants ---
 EUTILS_BASE = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"
@@ -169,7 +167,7 @@ def fetch_taxids_for_accessions(accessions, taxdump_dict, api_key=None):
                 uids = data["result"]["uids"]
                 for uid in uids:
                     item = data["result"][uid]
-                    taxid = str(item.get("taxid",""))
+                    taxid = str(item.get("taxid", ""))
                     if taxid:
                         species_taxid = get_species_id(taxid, taxdump_dict)
                     else:
@@ -192,7 +190,7 @@ def fetch_taxids_for_accessions(accessions, taxdump_dict, api_key=None):
             time.sleep(5)
 
     pbar.close()
-    
+
     df = pd.DataFrame(results)
     df["blast_organism"] = df["blast_organism"].apply(clean_16s_title)
 
@@ -201,7 +199,7 @@ def fetch_taxids_for_accessions(accessions, taxdump_dict, api_key=None):
 
 def get_species_id(query_taxid, node_dict):
     query_taxid = str(query_taxid)
-    
+
     # Check if ID exists
     if query_taxid not in node_dict:
         return f"Error: TaxID {query_taxid} not found in database."
@@ -210,19 +208,20 @@ def get_species_id(query_taxid, node_dict):
 
     while True:
         node = node_dict[current_id]
-        rank = node['rank']
-        parent = node['parent']
-        
-        if rank == 'species':
+        rank = node["rank"]
+        parent = node["parent"]
+
+        if rank == "species":
             return current_id
-            
-        if current_id == parent or current_id == '1':
-            # We reached the top without hitting 'species'. 
+
+        if current_id == parent or current_id == "1":
+            # We reached the top without hitting 'species'.
             # This happens if the input is higher than species (e.g. a Genus)
             return None
-        
+
         # 3. Move up the tree
         current_id = parent
+
 
 def fetch_refseq_assembly_summary(tax_list):
     """
@@ -243,7 +242,7 @@ def fetch_refseq_assembly_summary(tax_list):
             )
             if not success:
                 return pd.DataFrame()
-            
+
         else:
             logger.info("Using cached assembly summary from temp...")
 
@@ -254,34 +253,45 @@ def fetch_refseq_assembly_summary(tax_list):
             sep="\t",
             dtype=str,
             header=1,
-            usecols=["#assembly_accession", "refseq_category", "taxid", "species_taxid", "organism_name"],
+            usecols=[
+                "#assembly_accession",
+                "refseq_category",
+                "taxid",
+                "species_taxid",
+                "organism_name",
+            ],
         )
 
-        df.rename(columns={
-            '#assembly_accession': 'assembly_accession',
-            'organism_name': 'refseq_organism_name'
-        }, inplace=True)
-        df = df[df['refseq_category'] != 'na']
+        df.rename(
+            columns={
+                "#assembly_accession": "assembly_accession",
+                "organism_name": "refseq_organism_name",
+            },
+            inplace=True,
+        )
+        df = df[df["refseq_category"] != "na"]
 
         # note: some of these will match on taxid and some will match on species_taxid
-        df['any_taxid'] = df['taxid']
+        df["any_taxid"] = df["taxid"]
 
         df_species = df.copy()
-        df_species['any_taxid'] = df_species['species_taxid']
+        df_species["any_taxid"] = df_species["species_taxid"]
 
         df = pd.concat([df, df_species], ignore_index=True)
         # for when species_taxid == strain_taxid
         df = df.drop_duplicates()
 
-        df = df[df['any_taxid'].isin(tax_list)]
+        df = df[df["any_taxid"].isin(tax_list)]
 
-        found_taxids = set(df['any_taxid'])
+        found_taxids = set(df["any_taxid"])
         missing_taxids = list(set(tax_list) - found_taxids)
 
         logging.info(f"Count of missing IDs: {len(missing_taxids)}")
         logging.info(f"Missing IDs: {missing_taxids}")
 
-        logger.info(f"Identified {len(df)} reference genomes for {len(tax_list)} taxids.")
+        logger.info(
+            f"Identified {len(df)} reference genomes for {len(tax_list)} taxids."
+        )
         return df
 
     except Exception as e:
@@ -311,7 +321,7 @@ def fetch_taxdump_files():
             )
             if not success:
                 return pd.DataFrame()
-            
+
         else:
             logger.info("Using taxdump files from temp...")
 
@@ -323,15 +333,15 @@ def fetch_taxdump_files():
                 # Read line by line
                 for line in f:
                     # Decode bytes to string and strip whitespace
-                    line = line.decode('utf-8').strip()
-                    parts = line.split('|')
+                    line = line.decode("utf-8").strip()
+                    parts = line.split("|")
 
                     taxid = parts[0].strip()
                     parent_taxid = parts[1].strip()
                     rank = parts[2].strip()
-                    
+
                     # Store in a dict: tax_id -> (parent, rank)
-                    nodes[taxid] = {'parent': parent_taxid, 'rank': rank}
+                    nodes[taxid] = {"parent": parent_taxid, "rank": rank}
         return nodes
 
     except Exception as e:
@@ -339,6 +349,7 @@ def fetch_taxdump_files():
         return {}
     finally:
         pass
+
 
 def clean_16s_title(text):
     """
@@ -361,7 +372,10 @@ def clean_16s_title(text):
 
     return text.strip()
 
+
 import random
+
+
 def create_metadata_table(db_path, output_path, api_key=None):
     """Main function to generate the metadata table."""
 
@@ -378,19 +392,24 @@ def create_metadata_table(db_path, output_path, api_key=None):
     df = fetch_taxids_for_accessions(accessions, taxdump_dict, api_key)
 
     # 4. Get RefSeq Reference Accesions for each TaxID
-    taxid_list = pd.concat([df['blast_taxid'], df['blast_species_taxid']]).unique().tolist()
+    taxid_list = (
+        pd.concat([df["blast_taxid"], df["blast_species_taxid"]]).unique().tolist()
+    )
     df_assemblies = fetch_refseq_assembly_summary(taxid_list)
 
     # 5. Combine Dataframes
-    df_taxid = df.merge(df_assemblies, left_on='blast_species_taxid', right_on='any_taxid', how = 'left')
-    df_species = df.merge(df_assemblies, left_on='blast_taxid', right_on='any_taxid', how = 'left')
+    df_taxid = df.merge(
+        df_assemblies, left_on="blast_species_taxid", right_on="any_taxid", how="left"
+    )
+    df_species = df.merge(
+        df_assemblies, left_on="blast_taxid", right_on="any_taxid", how="left"
+    )
 
     final_df = pd.concat([df_taxid, df_species], ignore_index=True)
-    final_df = final_df.sort_values(['blast_organism', 'blast_sacc'])
+    final_df = final_df.sort_values(["blast_organism", "blast_sacc"])
     final_df = final_df.drop_duplicates()
 
     # 6. Save
     output_path = Path(output_path)
     final_df.to_csv(output_path, index=False, compression="gzip")
     logger.info(f"DB Metadata saved to {output_path}")
-

@@ -4,6 +4,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+
 def load_metadata(fpath=None):
     """
     Loads the metadata CSV into a Pandas DataFrame.
@@ -20,14 +21,12 @@ def load_metadata(fpath=None):
         path = Path(fpath)
 
     if not path.exists():
-        logger.fatal(
-            f"Metadata file not found at {path}."
-        )
+        logger.fatal(f"Metadata file not found at {path}.")
         return pd.DataFrame()
 
     try:
         df = pd.read_csv(path, compression="gzip", dtype=str)
-        df['sacc'] = df['blast_sacc'].str.split('.').str[0]
+        df["sacc"] = df["blast_sacc"].str.split(".").str[0]
 
         return df
 
