@@ -34,6 +34,7 @@ def main():
     # --- Input/Output ---
     parser.add_argument("-i", "--input", nargs="+", help="Input FASTA files")
     parser.add_argument("-o", "--output", default="results.csv", help="Output CSV file")
+    parser.add_argument("-t", "--threads", type=int, default=4, help="BLAST threads")
     parser.add_argument(
         "-d",
         "--download-genomes",
@@ -66,8 +67,6 @@ def main():
         "--api-key", type=str, help="NCBI API Key (Speeds up metadata generation)"
     )
 
-    parser.add_argument("-t", "--threads", type=int, default=4, help="BLAST threads")
-
     # --- Filtering Options ---
     filter_group = parser.add_argument_group("Filtering Options")
     filter_group.add_argument(
@@ -92,7 +91,7 @@ def main():
         "--min-hits",
         type=int,
         default=1,
-        help="Filter: Minimum reads required to report an organism",
+        help="Filter: Minimum reads required to report an organism. Default: 1/No Filter",
     )
     filter_group.add_argument(
         "--min-alignment-len",
@@ -118,14 +117,11 @@ def main():
         target_dir = args.db_dir if args.db_dir else Path("spestimator_db")
 
         # 1. Download & Build BLAST DB
-        # force=True ensures we re-download if the file exists but might be old/corrupt
         download_database(target_dir, force=True)
 
         # 2. Generate Metadata
         db_prefix = target_dir / "bacteria.16SrRNA"
-        db_metadata_output = target_dir / "db_metadata.csv.gz"
-        refseq_metadata_output = target_dir / "refseq_metadata.csv.gz"
-
+        metadata_output = target_dir / "metadata.csv.gz"
 
         # Safe check for DB existence (avoiding pathlib suffix replacement issues)
         nsq_path = Path(str(db_prefix) + ".nsq")
@@ -139,7 +135,7 @@ def main():
         logging.info(
             "Generating metadata table (this uses NCBI API and may take a minute)..."
         )
-        create_metadata_table(db_prefix, db_metadata_output, refseq_metadata_output, api_key=args.api_key)
+        create_metadata_table(db_prefix, metadata_output, api_key=args.api_key)
 
         logging.info("Update complete.")
         sys.exit(0)
@@ -219,69 +215,50 @@ def main():
 
     df = pd.DataFrame(all_raw_results)
 
-    # --- Mode 3: Estimation (Phase 2: Local Metadata Merge) ---
-    # Determine metadata path based on current DB location
-    metadata_path = db_prefix.parent / "metadata.csv.gz"
+    if df.empty:
+        logging.info("There were no blast hits. Exiting.")
+        sys.exit(0)
 
+    # --- Mode 3: Estimation (Phase 2: Local Metadata Merge) ---
+
+    metadata_path = db_prefix.parent / "metadata.csv.gz"
     logging.info(f"Loading metadata from {metadata_path}...")
     meta_df = load_metadata(metadata_path)
 
-    if not meta_df.empty:
-        # 1. Normalize BLAST Dataframe Accession Column
-        for col in ["sacc", "accession"]:
-            if col in df.columns:
-                if "blast_sacc" not in df.columns:
-                    df.rename(columns={col: "blast_sacc"}, inplace=True)
-                else:
-                    df["blast_sacc"] = df["blast_sacc"].fillna(df[col])
-                    df.drop(columns=[col], inplace=True)
+    df = df.merge(
+            meta_df,
+            on="sacc",
+            how="left",
+        )
 
-        if "blast_sacc" in df.columns:
-            # Create merge keys (strip version numbers if necessary, though BLAST usually returns them)
-            df["merge_key"] = df["blast_sacc"].astype(str).str.split(".").str[0]
+    cols_to_drop = ["blast_sacc", "blast_organism", "refseq_category", "any_taxid"]
 
-            # Normalize Metadata Accession Column
-            col_to_clean = (
-                "blast_sacc" if "blast_sacc" in meta_df.columns else meta_df.columns[0]
-            )
-            meta_df["merge_key"] = (
-                meta_df[col_to_clean].astype(str).str.split(".").str[0]
-            )
+    # Drop them in place
+    df = df.drop(columns=cols_to_drop)
+    df = df.dropna(subset=['assembly_accession'])
 
-            logging.info(f"Merging results with {len(meta_df)} metadata records...")
+    # specific mapping of old_name: new_name
+    rename_map = {
+        'blast_taxid': 'taxid',
+        'blast_species_taxid': 'species_taxid',
+        'assembly_accession': 'refseq_assembly_accession',
+        'taxid': 'refseq_taxid',
+        'species_taxid': 'refseq_species_taxid'
+    }
 
-            # 2. Merge
-            # We include 'organism' from metadata to get the clean RefSeq name
-            df = df.merge(
-                meta_df[["merge_key", "taxid", "refseq_assembly", "organism"]],
-                on="merge_key",
-                how="left",
-                suffixes=("", "_clean"),
-            )
+    # Apply the rename
+    df = df.rename(columns=rename_map)
 
-            # 3. Prioritize Clean Names
-            # If metadata gave us a clean organism name, use it. Otherwise keep BLAST result.
-            if "organism_clean" in df.columns:
-                df["organism"] = df["organism_clean"].fillna(df["organism"])
-                df.drop(columns=["organism_clean"], inplace=True)
-
-            # Rename refseq assembly -> refseq accession for output clarity
-            if "refseq_assembly" in df.columns:
-                df.rename(columns={"refseq_assembly": "refseq_accession"}, inplace=True)
-
-            logging.info("Metadata merged successfully.")
-        else:
-            logging.warning(
-                "BLAST results missing 'blast_sacc' column. Skipping metadata merge."
-            )
+    logging.info("Metadata merged successfully.")
 
     # --- Mode 3: Estimation (Phase 3: Formatting & Save) ---
     cols = [
         "input file",
+        "sacc",
         "organism",
+        "refseq_assembly_accession",
         "taxid",
-        "refseq_accession",
-        "blast_sacc",
+        "species_taxid",
         "count",
         "total_bitscore",
         "avg_bitscore",
@@ -293,6 +270,7 @@ def main():
 
     final_cols = [c for c in cols if c in df.columns]
     df = df[final_cols].fillna("")
+    df = df.drop_duplicates()
 
     df.to_csv(args.output, index=False)
     logging.info(f"Results saved to {args.output}")
@@ -302,9 +280,9 @@ def main():
         genome_dir = args.download_genomes
         logging.info("--- Starting Genome Downloads ---")
 
-        if "refseq_accession" in df.columns:
-            valid_gcfs = df[df["refseq_accession"].astype(str).str.startswith("GCF")]
-            unique_gcfs = valid_gcfs["refseq_accession"].unique().tolist()
+        if "refseq_assembly_accession" in df.columns:
+            valid_gcfs = df[df["refseq_assembly_accession"].astype(str).str.startswith("GCF")]
+            unique_gcfs = valid_gcfs["refseq_assembly_accession"].unique().tolist()
 
             if unique_gcfs:
                 download_genomes_bulk(unique_gcfs, genome_dir)
