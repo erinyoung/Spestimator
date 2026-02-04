@@ -137,9 +137,10 @@ Filtering Options:
 The results CSV contains the following columns:
 
 - **organism:** The clean species name (e.g., *E. coli*).
-- **taxid:** NCBI Taxonomy ID.
-- **refseq_accession:** The Assembly ID (e.g., `GCF_000005845.2`) used for downloading.
-- **blast_sacc:** The specific 16S sequence accession hit.
+- **taxid:** NCBI Taxonomy ID for the organism.
+- **species_taxid:** NCBI Taxonomy ID for the species of the organism.
+- **refseq_assembly_accession:** The Assembly ID (e.g., `GCF_000005845.2`) used for downloading.
+- **sacc:** The specific 16S sequence accession hit.
 - **count:** Number of input sequences matching this organism.
 - **avg_pident:** Average percent identity of the matches.
 - **avg_bitscore:** A metric combining match quality and length.
@@ -153,17 +154,17 @@ spestimator -i tests/sample_positive.fasta
 The results should look like this
 
 ```
-input file,organism,taxid,refseq_accession,blast_sacc,count,total_bitscore,avg_bitscore,avg_pident,max_pident,avg_qcov,best_evalue
-sample_positive.fasta,Streptococcus pyogenes,1314,GCF_900475035.1,NR_112088,1,2772,2772.0,100.0,100.0,33.25947263461113,0.0
-sample_positive.fasta,Streptococcus canis,1329,GCF_900636575.1,NR_115729,1,2545,2545.0,98.085,98.085,32.395302459561265,0.0
-sample_positive.fasta,Streptococcus canis,1329,GCF_900636575.1,NR_024633,1,2536,2536.0,97.202,97.202,33.25947263461113,0.0
-sample_positive.fasta,Streptococcus urinalis,149016,GCF_900636885.1,NR_037101,1,2534,2534.0,97.135,97.135,33.25947263461113,0.0
-sample_positive.fasta,Streptococcus dysgalactiae subsp. equisimilis,119602,,NR_043661,1,2534,2534.0,97.443,97.443,32.92709949036118,0.0
-sample_positive.fasta,Streptococcus iniae,1346,GCF_000831485.1,NR_025148,1,2532,2532.0,96.422,96.422,34.05716818081099,0.0
-sample_positive.fasta,Streptococcus ictaluri 707-05,764299,,NR_115802,1,2523,2523.0,97.627,97.627,32.68335918457789,0.0
-sample_positive.fasta,Streptococcus penaeicida,1765960,GCF_965139625.1,NR_178901,1,2514,2514.0,96.217,96.217,33.96853534234434,0.0
-sample_positive.fasta,Streptococcus tangpeifui,2709400,GCF_011038795.1,NR_199923,1,2494,2494.0,95.858,95.858,34.23443385774429,0.0
-sample_positive.fasta,Streptococcus agalactiae ATCC 13813,888745,,NR_040821,1,2484,2484.0,96.536,96.536,33.25947263461113,0.0
+input file,sacc,organism,refseq_assembly_accession,taxid,species_taxid,count,total_bitscore,avg_bitscore,avg_pident,max_pident,avg_qcov,best_evalue
+sample_positive.fasta,NR_112088,Streptococcus pyogenes,GCF_900475035.1,1314,1314,1,2772,2772.0,100.0,100.0,33.25947263461113,0.0
+sample_positive.fasta,NR_115729,Streptococcus canis,GCF_900636575.1,1329,1329,1,2545,2545.0,98.085,98.085,32.395302459561265,0.0
+sample_positive.fasta,NR_024633,Streptococcus canis,GCF_900636575.1,1329,1329,1,2536,2536.0,97.202,97.202,33.25947263461113,0.0
+sample_positive.fasta,NR_037101,Streptococcus urinalis,GCF_900636885.1,149016,149016,1,2534,2534.0,97.135,97.135,33.25947263461113,0.0
+sample_positive.fasta,NR_043661,Streptococcus dysgalactiae subsp. equisimilis,GCF_016128095.1,119602,1334,1,2534,2534.0,97.443,97.443,32.92709949036118,0.0
+sample_positive.fasta,NR_025148,Streptococcus iniae,GCF_000831485.1,1346,1346,1,2532,2532.0,96.422,96.422,34.05716818081099,0.0
+sample_positive.fasta,NR_115802,Streptococcus ictaluri 707-05,GCF_000188015.2,764299,380397,1,2523,2523.0,97.627,97.627,32.68335918457789,0.0
+sample_positive.fasta,NR_178901,Streptococcus penaeicida,GCF_053204055.1,1765960,1765960,1,2514,2514.0,96.217,96.217,33.96853534234434,0.0
+sample_positive.fasta,NR_199923,Streptococcus tangpeifui,GCF_044503215.1,2709400,2709400,1,2494,2494.0,95.858,95.858,34.23443385774429,0.0
+sample_positive.fasta,NR_040821,Streptococcus agalactiae ATCC 13813,GCF_001552035.1,888745,1311,1,2484,2484.0,96.536,96.536,33.25947263461113,0.0
 ```
 
 ## Disclaimer: NCBI Datasets
