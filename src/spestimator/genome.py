@@ -50,7 +50,6 @@ def download_genomes_bulk(accession_list, output_dir):
             # Respect rate limits slightly
             time.sleep(0.35)
 
-            # FIX: Removed '_preload_content=False'.
             # Recent versions of the library return the bytes directly by default for this endpoint.
             response = api_instance.download_assembly_package(
                 accessions=to_download, include_annotation_type=["GENOME_FASTA"]

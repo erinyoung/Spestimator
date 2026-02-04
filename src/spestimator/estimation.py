@@ -129,8 +129,6 @@ def process_results(df, fasta_file, filters):
     if df.empty:
         return []
 
-    df = df.copy()
-
     # 3. Clean Organism Name from 'stitle'
     # This provides a clean name for the report even if metadata lookup fails later
     df["organism_clean"] = df["stitle"].apply(clean_organism_name)

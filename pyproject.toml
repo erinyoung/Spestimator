@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "spestimator"
-version = "0.1.0.232"
+version = "0.3.0.233"
 description = "A tool to predict bacterial species from fasta files using RefSeq 16S."
 readme = "README.md"
 authors = [
